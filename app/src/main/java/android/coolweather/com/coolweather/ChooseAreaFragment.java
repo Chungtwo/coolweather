@@ -1,6 +1,7 @@
 package android.coolweather.com.coolweather;
 
 import android.app.ProgressDialog;
+import android.content.Intent;
 import android.coolweather.com.coolweather.db.City;
 import android.coolweather.com.coolweather.db.County;
 import android.coolweather.com.coolweather.db.Province;
@@ -10,6 +11,7 @@ import android.os.Bundle;
 import android.provider.ContactsContract;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -74,13 +76,19 @@ public class ChooseAreaFragment extends Fragment {
         super.onActivityCreated(savedInstanceState);
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
-            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+            public void onItemClick(AdapterView<?> adapterView, View view, int position, long id) {
                 if(currentLevel==LEVEL_PROVINCE){
-                    selectedProvince=provinceList.get(i);
+                    selectedProvince=provinceList.get(position);
                     queryCities();
                 }else if(currentLevel==LEVEL_CITY){
-                    selectedCity=cityList.get(i);
+                    selectedCity=cityList.get(position);
                     queryCounties();
+                }else if(currentLevel==LEVEL_COUNTY){
+                    String weatherId=countyList.get(position).getWeatherId();
+                    Intent intent=new Intent(getActivity(),WeatherActivity.class);
+                    intent.putExtra("weather_id",weatherId);
+                    startActivity(intent);
+                    getActivity().finish();
                 }
             }
         });
@@ -117,6 +125,21 @@ public class ChooseAreaFragment extends Fragment {
     //查询全国所有的市，优先从数据库查询，如果没有查询到再去服务器上查询
     private void queryCities(){
         titleText.setText(selectedProvince.getProvinceName());
+        backButton.setVisibility(View.VISIBLE);
+        cityList=DataSupport.where("provinceid = ?",String.valueOf(selectedProvince.getId())).find(City.class);
+        if (cityList.size()>0){
+            dataList.clear();
+            for (City city:cityList){
+                dataList.add(city.getCityName());
+            }
+            adapter.notifyDataSetChanged();
+            listView.setSelection(0);
+            currentLevel=LEVEL_CITY;
+        }else {
+            int provinceCode=selectedProvince.getProvinceCode();
+            String address="http://guolin.tech/api/china/"+provinceCode;
+            queryFromServer(address,"city");
+        }
 
     }
     //查询全国所有的县，优先从数据库查询，如果没有查询到再去服务器上查询
